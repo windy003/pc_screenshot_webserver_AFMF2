@@ -37,37 +37,6 @@
         android:background="@android:drawable/dialog_holo_dark_frame"
         android:backgroundTint="#80000000" />
 
-    <!-- 顶部标题栏 -->
-    <LinearLayout
-        android:id="@+id/topBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:orientation="vertical"
-        android:background="#80000000"
-        android:padding="16dp">
-
-        <TextView
-            android:id="@+id/imageNameTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="图片名称"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/imageCountTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="1 / 10"
-            android:textColor="#CCCCCC"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp" />
-    </LinearLayout>
-
     <!-- 底部按钮栏 -->
     <LinearLayout
         android:id="@+id/bottomBar"

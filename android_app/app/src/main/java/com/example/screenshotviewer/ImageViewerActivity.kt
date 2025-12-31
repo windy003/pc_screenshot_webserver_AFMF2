@@ -38,10 +38,7 @@ class ImageViewerActivity : AppCompatActivity() {
     private lateinit var deleteButton: Button
     private lateinit var prevButton: Button
     private lateinit var nextButton: Button
-    private lateinit var topBar: LinearLayout
     private lateinit var bottomBar: LinearLayout
-    private lateinit var imageNameTextView: TextView
-    private lateinit var imageCountTextView: TextView
 
     private var images: List<FileItem> = emptyList()
     private var currentPosition: Int = 0
@@ -52,6 +49,10 @@ class ImageViewerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 隐藏ActionBar
+        supportActionBar?.hide()
+
         setContentView(R.layout.activity_image_viewer)
 
         // Get data from intent
@@ -77,10 +78,7 @@ class ImageViewerActivity : AppCompatActivity() {
         deleteButton = findViewById(R.id.deleteButton)
         prevButton = findViewById(R.id.prevButton)
         nextButton = findViewById(R.id.nextButton)
-        topBar = findViewById(R.id.topBar)
         bottomBar = findViewById(R.id.bottomBar)
-        imageNameTextView = findViewById(R.id.imageNameTextView)
-        imageCountTextView = findViewById(R.id.imageCountTextView)
     }
 
     private fun setupViewPager() {
@@ -134,12 +132,6 @@ class ImageViewerActivity : AppCompatActivity() {
     }
 
     private fun updateImageInfo() {
-        val currentImage = getCurrentImage()
-        if (currentImage != null) {
-            imageNameTextView.text = currentImage.name
-            imageCountTextView.text = "${currentPosition + 1} / ${images.size}"
-        }
-
         // 更新按钮状态
         prevButton.isEnabled = currentPosition > 0
         nextButton.isEnabled = currentPosition < images.size - 1
@@ -152,12 +144,6 @@ class ImageViewerActivity : AppCompatActivity() {
 
         if (isUIVisible) {
             // 显示UI
-            topBar.animate()
-                .translationY(0f)
-                .alpha(1f)
-                .setDuration(300)
-                .start()
-
             bottomBar.animate()
                 .translationY(0f)
                 .alpha(1f)
@@ -175,12 +161,6 @@ class ImageViewerActivity : AppCompatActivity() {
                 .start()
         } else {
             // 隐藏UI
-            topBar.animate()
-                .translationY(-topBar.height.toFloat())
-                .alpha(0f)
-                .setDuration(300)
-                .start()
-
             bottomBar.animate()
                 .translationY(bottomBar.height.toFloat())
                 .alpha(0f)
