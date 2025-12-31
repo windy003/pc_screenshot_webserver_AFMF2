@@ -38,6 +38,11 @@ class ImagePagerAdapter(
             onImageClick?.invoke()
         }
 
+        // 设置缩放范围：最小0.5倍，中等1倍，最大10倍
+        holder.photoView.minimumScale = 0.5f
+        holder.photoView.mediumScale = 2f
+        holder.photoView.maximumScale = 10f
+
         // 显示 placeholder
         holder.photoView.setImageResource(android.R.drawable.ic_menu_gallery)
 
