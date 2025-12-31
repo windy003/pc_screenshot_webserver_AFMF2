@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回收站 - 文件浏览器</title>
+    <link rel="apple-touch-icon" sizes="2048x2048" href="{{ url_for('static', filename='2048x2048.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='2048x2048.png') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .info-banner {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            color: #856404;
+        }
+
+        .file-list {
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.3s;
+        }
+
+        .file-item:hover {
+            background: #f9f9f9;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            width: 30px;
+            text-align: center;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .file-meta {
+            font-size: 13px;
+            color: #999;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .file-meta-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .original-path {
+            color: #667eea;
+            font-style: italic;
+        }
+
+        .days-left {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        @media (max-width: 768px) {
+            .file-item {
+                flex-wrap: wrap;
+            }
+
+            .file-info {
+                width: 100%;
+            }
+
+            .file-actions {
+                width: 100%;
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #f0f0f0;
+            }
+
+            .file-actions .btn-sm {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗑️ 回收站</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">返回首页</a>
+            {% if items %}
+            <button class="btn btn-danger" onclick="emptyRecycleBin()">清空回收站</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="info-banner">
+            ⚠️ 回收站中的文件将在30天后自动永久删除
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="file-list">
+            {% if items %}
+                {% for item in items %}
+                    <div class="file-item">
+                        <div class="file-icon">
+                            {% if item.is_dir %}
+                                📁
+                            {% elif item.file_type == 'audio' %}
+                                🎵
+                            {% elif item.file_type == 'video' %}
+                                🎬
+                            {% elif item.file_type == 'image' %}
+                                🖼️
+                            {% elif item.file_type == 'pdf' %}
+                                📕
+                            {% else %}
+                                📄
+                            {% endif %}
+                        </div>
+                        <div class="file-info">
+                            <div class="file-name">{{ item.name }}</div>
+                            <div class="file-meta">
+                                <div class="file-meta-item original-path">
+                                    📍 原路径: {{ item.original_path if item.original_path else '根目录' }}
+                                </div>
+                                {% if not item.is_dir %}
+                                <div class="file-meta-item">
+                                    📦 大小: {{ item.size | format_size }}
+                                </div>
+                                {% endif %}
+                                <div class="file-meta-item">
+                                    🕒 删除时间: {{ item.deleted_time }}
+                                </div>
+                                <div class="file-meta-item days-left">
+                                    ⏳ 剩余 {{ item.days_left }} 天
+                                </div>
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="btn btn-success btn-sm" onclick="restoreItem('{{ item.id }}', '{{ item.name }}')">恢复</button>
+                            <button class="btn btn-danger btn-sm" onclick="permanentDelete('{{ item.id }}', '{{ item.name }}')">永久删除</button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">🗑️</div>
+                    <p>回收站为空</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        async function restoreItem(itemId, name) {
+            if (!confirm(`确定要恢复 "${name}" 吗？`)) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('item_id', itemId);
+
+            try {
+                const response = await fetch('/restore', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch (error) {
+                showAlert('恢复失败: ' + error.message, 'error');
+            }
+        }
+
+        async function permanentDelete(itemId, name) {
+            if (!confirm(`⚠️ 确定要永久删除 "${name}" 吗？\n\n此操作无法撤销！`)) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('item_id', itemId);
+
+            try {
+                const response = await fetch('/permanent-delete', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch (error) {
+                showAlert('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        async function emptyRecycleBin() {
+            if (!confirm('⚠️ 确定要清空回收站吗？\n\n回收站中的所有文件将被永久删除，此操作无法撤销！')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/empty-recycle-bin', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch (error) {
+                showAlert('清空失败: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

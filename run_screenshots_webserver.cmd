@@ -1,0 +1,1 @@
+start /b pythonw D:\files\projects\pc_screenshot_webserver\app.py
