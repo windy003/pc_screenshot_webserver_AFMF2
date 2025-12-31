@@ -115,7 +115,10 @@ class ImageViewerActivity : AppCompatActivity() {
         }
 
         deleteButton.setOnClickListener {
-            confirmDeleteCurrentImage()
+            val currentImage = getCurrentImage()
+            if (currentImage != null) {
+                deleteCurrentImage(currentImage)
+            }
         }
 
         prevButton.setOnClickListener {
