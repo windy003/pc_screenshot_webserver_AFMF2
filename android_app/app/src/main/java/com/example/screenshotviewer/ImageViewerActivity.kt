@@ -24,6 +24,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -152,10 +153,13 @@ class ImageViewerActivity : AppCompatActivity() {
 
     private fun setupListeners() {
         saveImageButton.setOnClickListener {
+            Toast.makeText(this, "保存按钮点击 - 位置:$currentPosition 列表大小:${images.size}", Toast.LENGTH_SHORT).show()
             if (checkStoragePermission()) {
                 val currentImage = getCurrentImage()
                 if (currentImage != null) {
                     markAsSaved(currentImage)
+                } else {
+                    Toast.makeText(this, "错误：无法获取当前图片", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 requestStoragePermission()
@@ -163,9 +167,12 @@ class ImageViewerActivity : AppCompatActivity() {
         }
 
         deleteButton.setOnClickListener {
+            Toast.makeText(this, "删除按钮点击 - 位置:$currentPosition 列表大小:${images.size}", Toast.LENGTH_SHORT).show()
             val currentImage = getCurrentImage()
             if (currentImage != null) {
                 markAsDeleted(currentImage)
+            } else {
+                Toast.makeText(this, "错误：无法获取当前图片", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -259,8 +266,7 @@ class ImageViewerActivity : AppCompatActivity() {
     }
 
     private fun getCurrentImage(): FileItem? {
-        val position = imageViewPager.currentItem
-        return if (position >= 0 && position < images.size) images[position] else null
+        return if (currentPosition >= 0 && currentPosition < images.size) images[currentPosition] else null
     }
 
     private suspend fun downloadImageToLocal(image: FileItem): Boolean {
@@ -459,6 +465,10 @@ class ImageViewerActivity : AppCompatActivity() {
             deleteButton.isEnabled = false
             saveImageButton.isEnabled = false
         } else {
+            // 确保按钮是启用的
+            deleteButton.isEnabled = true
+            saveImageButton.isEnabled = true
+
             // 更新ViewPager
             val adapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
             imageViewPager.adapter = adapter
@@ -491,6 +501,10 @@ class ImageViewerActivity : AppCompatActivity() {
             deleteButton.isEnabled = false
             saveImageButton.isEnabled = false
         } else {
+            // 确保按钮是启用的
+            deleteButton.isEnabled = true
+            saveImageButton.isEnabled = true
+
             // 更新ViewPager
             val adapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
             imageViewPager.adapter = adapter
@@ -580,7 +594,8 @@ class ImageViewerActivity : AppCompatActivity() {
     private fun executePendingDeletes() {
         if (operationHistory.isEmpty()) return
 
-        lifecycleScope.launch(Dispatchers.IO) {
+        // 使用 GlobalScope 确保即使 Activity 销毁也能执行完
+        GlobalScope.launch(Dispatchers.IO) {
             try {
                 while (operationHistory.isNotEmpty()) {
                     val operation = operationHistory.removeFirst()
