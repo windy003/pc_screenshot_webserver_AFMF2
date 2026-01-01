@@ -102,8 +102,10 @@ class ImagePagerAdapter(
                                                 holder.photoView.mediumScale = medScale
                                                 holder.photoView.minimumScale = minScale
 
-                                                // 应用缩放
-                                                holder.photoView.setScale(safeTargetScale, false)
+                                                // 应用缩放,并设置焦点为顶部中心,使图片顶部对齐屏幕顶部
+                                                // setScale(scale, focalX, focalY, animate)
+                                                // focalX = viewWidth/2 (水平居中), focalY = 0 (顶部对齐)
+                                                holder.photoView.setScale(safeTargetScale, viewWidth / 2f, 0f, false)
 
                                                 // 验证结果
                                                 holder.photoView.postDelayed({
