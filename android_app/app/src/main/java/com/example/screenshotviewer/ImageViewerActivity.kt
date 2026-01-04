@@ -391,8 +391,10 @@ class ImageViewerActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // 在Activity暂停时执行所有待删除的操作
-        executePendingDeletes()
+        // 只有在真正退出时才执行待处理的操作（不是配置变化导致的暂停）
+        if (isFinishing) {
+            executePendingDeletes()
+        }
     }
 
     private fun deleteImageAfterSave(image: FileItem) {
