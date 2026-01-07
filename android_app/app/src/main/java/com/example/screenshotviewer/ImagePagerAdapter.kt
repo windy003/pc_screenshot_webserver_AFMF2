@@ -1,7 +1,9 @@
 package com.example.screenshotviewer
 
 import android.graphics.BitmapFactory
+import android.view.GestureDetector
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -21,6 +23,8 @@ class ImagePagerAdapter(
 
     class ImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val photoView: PhotoView = view.findViewById(R.id.photoView)
+        var baseScale: Float = 1f  // 保存基础缩放比例（适应宽度）
+        var isZoomedByDoubleTap: Boolean = false  // 跟踪是否通过双击放大
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ImageViewHolder {
@@ -33,10 +37,37 @@ class ImagePagerAdapter(
         val item = images[position]
         val imageUrl = "$baseUrl/stream/${item.path}"
 
-        // 设置点击监听器
-        holder.photoView.setOnClickListener {
-            onImageClick?.invoke()
-        }
+        // 重置双击状态
+        holder.isZoomedByDoubleTap = false
+
+        // 设置自定义双击监听器
+        holder.photoView.setOnDoubleTapListener(object : GestureDetector.OnDoubleTapListener {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                onImageClick?.invoke()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                val photoView = holder.photoView
+                val baseScale = holder.baseScale
+
+                if (holder.isZoomedByDoubleTap) {
+                    // 已经放大，返回原始大小（以点击点为中心）
+                    photoView.setScale(baseScale, e.x, e.y, true)
+                    holder.isZoomedByDoubleTap = false
+                } else {
+                    // 放大一倍（以点击点为中心）
+                    val targetScale = baseScale * 2.0f
+                    photoView.setScale(targetScale, e.x, e.y, true)
+                    holder.isZoomedByDoubleTap = true
+                }
+                return true
+            }
+
+            override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+                return false
+            }
+        })
 
         // 显示 placeholder
         holder.photoView.setImageResource(android.R.drawable.ic_menu_gallery)
@@ -101,6 +132,10 @@ class ImagePagerAdapter(
                                                 holder.photoView.maximumScale = maxScale
                                                 holder.photoView.mediumScale = medScale
                                                 holder.photoView.minimumScale = minScale
+
+                                                // 保存基础缩放比例
+                                                holder.baseScale = safeTargetScale
+                                                holder.isZoomedByDoubleTap = false
 
                                                 // 应用缩放,并设置焦点为顶部中心,使图片顶部对齐屏幕顶部
                                                 // setScale(scale, focalX, focalY, animate)
