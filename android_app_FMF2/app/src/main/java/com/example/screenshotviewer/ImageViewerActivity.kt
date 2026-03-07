@@ -2,8 +2,10 @@ package com.example.screenshotviewer
 
 import android.Manifest
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Bundle
@@ -33,6 +35,13 @@ import java.io.File
 import java.io.FileOutputStream
 
 class ImageViewerActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val config = Configuration(newBase.resources.configuration)
+        config.fontScale = 1.4f  // 固定字体缩放，忽略系统字体大小设置
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
 
     private lateinit var imageViewPager: ViewPager2
     private lateinit var saveImageButton: Button
