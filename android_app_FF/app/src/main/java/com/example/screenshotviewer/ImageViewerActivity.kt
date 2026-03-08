@@ -6,12 +6,20 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.view.MotionEvent
+import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -51,11 +59,17 @@ class ImageViewerActivity : AppCompatActivity() {
     private lateinit var nextButton: Button
     private lateinit var floatingPanel: LinearLayout
     private lateinit var pageCountTextView: TextView
+    private lateinit var addTextButton: Button
+    private lateinit var mergeTextButton: Button
+    private lateinit var textOverlay: TextView
 
     private var images: List<FileItem> = emptyList()
     private var currentPosition: Int = 0
     private var baseUrl: String = ""
     private var isUIVisible: Boolean = true
+    private lateinit var pagerAdapter: ImagePagerAdapter
+    // 保存合并了文字的 bitmap，key 为图片路径，跨 adapter 重建后仍有效
+    private val mergedBitmaps = mutableMapOf<String, Bitmap>()
 
     // 操作类型
     private enum class OperationType {
@@ -106,9 +120,88 @@ class ImageViewerActivity : AppCompatActivity() {
         nextButton = findViewById(R.id.nextButton)
         floatingPanel = findViewById(R.id.floatingPanel)
         pageCountTextView = findViewById(R.id.pageCountTextView)
+        addTextButton = findViewById(R.id.addTextButton)
+        mergeTextButton = findViewById(R.id.mergeTextButton)
+        textOverlay = findViewById(R.id.textOverlay)
 
         // 设置悬浮窗拖动功能
         setupDraggablePanel()
+        // 设置文字覆盖层拖动功能
+        setupDraggableTextOverlay()
+    }
+
+    private fun setupDraggableTextOverlay() {
+        var dX = 0f
+        var dY = 0f
+        var isDragging = false
+
+        val gestureDetector = android.view.GestureDetector(this,
+            object : android.view.GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    showTextInputDialog()
+                    return true
+                }
+            })
+
+        textOverlay.setOnTouchListener { view, event ->
+            gestureDetector.onTouchEvent(event)
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    dX = view.x - event.rawX
+                    dY = view.y - event.rawY
+                    isDragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    isDragging = true
+                    view.animate()
+                        .x(event.rawX + dX)
+                        .y(event.rawY + dY)
+                        .setDuration(0)
+                        .start()
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!isDragging) view.performClick()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun showTextInputDialog() {
+        val editText = EditText(this).apply {
+            hint = "请输入文字（支持多行）"
+            setText(textOverlay.text)
+            setPadding(40, 20, 40, 20)
+            minLines = 3
+            maxLines = 10
+            isSingleLine = false
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                    android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("输入文字")
+            .setView(editText)
+            .setPositiveButton("确定") { _, _ ->
+                val inputText = editText.text.toString()
+                if (inputText.isNotEmpty()) {
+                    textOverlay.text = inputText
+                    textOverlay.visibility = View.VISIBLE
+                } else {
+                    textOverlay.visibility = View.GONE
+                }
+            }
+            .setNegativeButton("取消", null)
+            .setNeutralButton("清除文字") { _, _ ->
+                textOverlay.text = ""
+                textOverlay.visibility = View.GONE
+            }
+            .show()
     }
 
     private fun setupDraggablePanel() {
@@ -137,11 +230,11 @@ class ImageViewerActivity : AppCompatActivity() {
     }
 
     private fun setupViewPager() {
-        val adapter = ImagePagerAdapter(images, baseUrl) {
+        pagerAdapter = ImagePagerAdapter(images, baseUrl) {
             // 点击图片时切换UI显示/隐藏
             toggleUI()
         }
-        imageViewPager.adapter = adapter
+        imageViewPager.adapter = pagerAdapter
         imageViewPager.setCurrentItem(currentPosition, false)
 
         // 禁用用户滑动，只允许通过按钮切换图片
@@ -199,6 +292,14 @@ class ImageViewerActivity : AppCompatActivity() {
             if (currentPosition < images.size - 1) {
                 imageViewPager.setCurrentItem(currentPosition + 1, true)
             }
+        }
+
+        addTextButton.setOnClickListener {
+            showTextInputDialog()
+        }
+
+        mergeTextButton.setOnClickListener {
+            mergeTextIntoImage()
         }
     }
 
@@ -428,10 +529,11 @@ class ImageViewerActivity : AppCompatActivity() {
                         finish()
                     } else {
                         // Update the ViewPager
-                        val adapter = ImagePagerAdapter(images, baseUrl) {
+                        pagerAdapter = ImagePagerAdapter(images, baseUrl) {
                             toggleUI()
                         }
-                        imageViewPager.adapter = adapter
+                        imageViewPager.adapter = pagerAdapter
+                        reapplyMergedBitmaps()
                         // Stay at same position or go to previous if we deleted the last one
                         val newPosition = if (position >= images.size) images.size - 1 else position
                         imageViewPager.setCurrentItem(newPosition, false)
@@ -481,8 +583,9 @@ class ImageViewerActivity : AppCompatActivity() {
             saveImageButton.isEnabled = true
 
             // 更新ViewPager
-            val adapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
-            imageViewPager.adapter = adapter
+            pagerAdapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
+            imageViewPager.adapter = pagerAdapter
+            reapplyMergedBitmaps()
             val newPosition = if (position >= images.size) images.size - 1 else position
             imageViewPager.setCurrentItem(newPosition, false)
             currentPosition = newPosition
@@ -517,8 +620,9 @@ class ImageViewerActivity : AppCompatActivity() {
             saveImageButton.isEnabled = true
 
             // 更新ViewPager
-            val adapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
-            imageViewPager.adapter = adapter
+            pagerAdapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
+            imageViewPager.adapter = pagerAdapter
+            reapplyMergedBitmaps()
             val newPosition = if (position >= images.size) images.size - 1 else position
             imageViewPager.setCurrentItem(newPosition, false)
             currentPosition = newPosition
@@ -542,8 +646,9 @@ class ImageViewerActivity : AppCompatActivity() {
         images = mutableImages
 
         // 更新UI
-        val adapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
-        imageViewPager.adapter = adapter
+        pagerAdapter = ImagePagerAdapter(images, baseUrl) { toggleUI() }
+        imageViewPager.adapter = pagerAdapter
+        reapplyMergedBitmaps()
         imageViewPager.setCurrentItem(insertPosition, false)
         currentPosition = insertPosition
 
@@ -626,6 +731,135 @@ class ImageViewerActivity : AppCompatActivity() {
         }
     }
 
+    private fun mergeTextIntoImage() {
+        if (textOverlay.visibility != View.VISIBLE || textOverlay.text.isEmpty()) {
+            Toast.makeText(this, "请先添加文字", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                val currentImage = getCurrentImage() ?: return@launch
+
+                mergeTextButton.isEnabled = false
+                mergeTextButton.text = "合并中..."
+
+                // 下载原图
+                val imageBytes = withContext(Dispatchers.IO) {
+                    val client = RetrofitClient.getOkHttpClient()
+                    val imageUrl = "$baseUrl/stream/${currentImage.path}"
+                    val request = Request.Builder().url(imageUrl).build()
+                    val response = client.newCall(request).execute()
+                    response.body?.bytes()
+                }
+
+                if (imageBytes == null) {
+                    Toast.makeText(this@ImageViewerActivity, "无法加载图片", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                val originalBitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                val mutableBitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
+                val canvas = Canvas(mutableBitmap)
+
+                // 计算图片在 ViewPager 中的显示区域（fit-center 缩放）
+                val viewW = imageViewPager.width.toFloat()
+                val viewH = imageViewPager.height.toFloat()
+                val imgW = mutableBitmap.width.toFloat()
+                val imgH = mutableBitmap.height.toFloat()
+                val scale = minOf(viewW / imgW, viewH / imgH)
+                val displayW = imgW * scale
+                val displayH = imgH * scale
+                val offsetX = (viewW - displayW) / 2f
+                val offsetY = (viewH - displayH) / 2f
+
+                // 文字在屏幕上的位置 → 映射到原图像素坐标
+                val textScreenX = textOverlay.x
+                val textScreenY = textOverlay.y
+                val textImgX = (textScreenX - offsetX) / scale
+                val textImgY = (textScreenY - offsetY) / scale
+
+                // 文字画笔（字体大小从屏幕像素换算到图片像素）
+                val textSizeInImage = textOverlay.textSize / scale
+                val textPaint = Paint().apply {
+                    color = Color.RED
+                    textSize = textSizeInImage
+                    typeface = Typeface.DEFAULT_BOLD
+                    isAntiAlias = true
+                }
+
+                val text = textOverlay.text.toString()
+                val lineHeight = textSizeInImage * 1.2f
+                text.split("\n").forEachIndexed { i, line ->
+                    canvas.drawText(line, textImgX, textImgY - textPaint.ascent() + i * lineHeight, textPaint)
+                }
+
+                // 保存合并后的 bitmap（跨 adapter 重建后仍可恢复）
+                mergedBitmaps[currentImage.path] = mutableBitmap
+
+                // 立即刷新当前图片显示
+                pagerAdapter.overrideBitmap(currentPosition, mutableBitmap)
+
+                Toast.makeText(this@ImageViewerActivity, "文字已合并到图片", Toast.LENGTH_SHORT).show()
+                textOverlay.visibility = View.GONE
+                textOverlay.text = ""
+
+            } catch (e: Exception) {
+                Toast.makeText(this@ImageViewerActivity, "合并失败: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                mergeTextButton.isEnabled = true
+                mergeTextButton.text = "合并文字"
+            }
+        }
+    }
+
+    private suspend fun saveMergedBitmap(bitmap: Bitmap, originalName: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val mergedName = "merged_$originalName"
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val contentValues = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, mergedName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DCIM}/Screenshots")
+                    }
+                    val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                    uri?.let {
+                        contentResolver.openOutputStream(it)?.use { outputStream ->
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)
+                        }
+                    } ?: return@withContext false
+                } else {
+                    val screenshotsDir = File(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
+                        "Screenshots"
+                    )
+                    if (!screenshotsDir.exists()) screenshotsDir.mkdirs()
+                    val outputFile = File(screenshotsDir, mergedName)
+                    FileOutputStream(outputFile).use { output ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, output)
+                    }
+                    val intent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                    intent.data = android.net.Uri.fromFile(outputFile)
+                    sendBroadcast(intent)
+                }
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+
+    // 将已合并的 bitmap 重新应用到新 adapter（撤销后重建 adapter 时调用）
+    private fun reapplyMergedBitmaps() {
+        images.forEachIndexed { index, item ->
+            mergedBitmaps[item.path]?.let { bitmap ->
+                pagerAdapter.overrideBitmap(index, bitmap)
+            }
+        }
+    }
+
     private fun confirmDeleteCurrentImage() {
         val currentImage = getCurrentImage()
         if (currentImage == null) {
@@ -664,10 +898,11 @@ class ImageViewerActivity : AppCompatActivity() {
                         finish()
                     } else {
                         // Update the ViewPager
-                        val adapter = ImagePagerAdapter(images, baseUrl) {
+                        pagerAdapter = ImagePagerAdapter(images, baseUrl) {
                             toggleUI()
                         }
-                        imageViewPager.adapter = adapter
+                        imageViewPager.adapter = pagerAdapter
+                        reapplyMergedBitmaps()
                         // Stay at same position or go to previous if we deleted the last one
                         val newPosition = if (position >= images.size) images.size - 1 else position
                         imageViewPager.setCurrentItem(newPosition, false)

@@ -142,6 +142,36 @@
                 android:text="删除"
                 android:textSize="11sp"
                 android:backgroundTint="#D32F2F"
+                android:layout_marginBottom="4dp"
+                android:minWidth="0dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:paddingLeft="0dp"
+                android:paddingRight="0dp" />
+
+            <!-- 文字按钮 -->
+            <Button
+                android:id="@+id/addTextButton"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="文字"
+                android:textSize="11sp"
+                android:backgroundTint="#2E7D32"
+                android:layout_marginBottom="4dp"
+                android:minWidth="0dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:paddingLeft="0dp"
+                android:paddingRight="0dp" />
+
+            <!-- 合并文字按钮 -->
+            <Button
+                android:id="@+id/mergeTextButton"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="合并文字"
+                android:textSize="11sp"
+                android:backgroundTint="#FF6F00"
                 android:minWidth="0dp"
                 android:insetLeft="0dp"
                 android:insetRight="0dp"
@@ -149,5 +179,21 @@
                 android:paddingRight="0dp" />
         </LinearLayout>
     </LinearLayout>
+
+    <!-- 可拖动的文字覆盖层 -->
+    <TextView
+        android:id="@+id/textOverlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#FF0000"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:padding="8dp"
+        android:background="@null"
+        android:singleLine="false"
+        android:maxLines="20"
+        android:visibility="gone"
+        android:elevation="10dp" />
 
 </RelativeLayout>

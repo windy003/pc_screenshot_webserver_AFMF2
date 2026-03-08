@@ -20,6 +20,14 @@ class ImagePagerAdapter(
     private val onImageClick: (() -> Unit)? = null
 ) : RecyclerView.Adapter<ImagePagerAdapter.ImageViewHolder>() {
 
+    // 存储合并后的 bitmap，key 为 position
+    private val bitmapOverrides = mutableMapOf<Int, Bitmap>()
+
+    fun overrideBitmap(position: Int, bitmap: Bitmap) {
+        bitmapOverrides[position] = bitmap
+        notifyItemChanged(position)
+    }
+
     class ImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val photoView: PhotoView = view.findViewById(R.id.photoView)
         var baseScale: Float = 1f  // 保存基础缩放比例（适应宽度）
@@ -67,6 +75,13 @@ class ImagePagerAdapter(
                 return false
             }
         })
+
+        // 如果有合并后的 bitmap，直接使用，跳过网络加载
+        val overrideBitmap = bitmapOverrides[position]
+        if (overrideBitmap != null) {
+            holder.photoView.setImageBitmap(overrideBitmap)
+            return
+        }
 
         // 显示 placeholder
         holder.photoView.setImageResource(android.R.drawable.ic_menu_gallery)
